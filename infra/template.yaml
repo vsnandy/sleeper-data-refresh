@@ -1,0 +1,20 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Sleeper Players Refresh Lambda
+
+Resources:
+  SleeperPlayersFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../src/lambda/
+      Handler: handler.handler
+      Runtime: python3.12
+      Timeout: 180
+      MemorySize: 512
+      Environment:
+        Variables:
+          S3_BUCKET: sleeper-player-data
+          TABLE_NAME: sleeper_players
+      Policies:
+        - AmazonDynamoDBFullAccess
+        - AmazonS3FullAccess
