@@ -5,7 +5,7 @@ variable "region" {
 
 variable "s3_bucket_name" {
   description = "Bucket for Sleeper full player JSONs"
-  default     = "sleeper-player-data"
+  default     = "vsnandy-sleeper-player-data"
 }
 
 variable "dynamo_table_name" {
