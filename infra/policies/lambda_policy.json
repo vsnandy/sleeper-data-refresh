@@ -9,7 +9,7 @@
     {
       "Effect": "Allow",
       "Action": ["s3:PutObject"],
-      "Resource": "arn:aws:s3:::sleeper-player-data/*"
+      "Resource": "arn:aws:s3:::vsnandy-sleeper-player/*"
     },
     {
       "Effect": "Allow",
