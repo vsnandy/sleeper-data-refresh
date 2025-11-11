@@ -28,6 +28,7 @@ jobs:
       - name: Install dependencies
         working-directory: src/lambda
         run: |
+          mkdir -p ../../build
           pip install -r requirements.txt -t .
           zip -r ../../build/lambda.zip .
 
