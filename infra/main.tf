@@ -89,7 +89,7 @@ resource "aws_lambda_function" "sleeper_data_refresh" {
 # --- Optional EventBridge rule for weekly refresh ---
 resource "aws_cloudwatch_event_rule" "weekly_refresh" {
   name                = "sleeper_data_refresh_weekly"
-  schedule_expression = "cron(15 6 ? * TUE *)" # 5 AM UTC every Tuesday
+  schedule_expression = "cron(20 6 ? * TUE *)" # 5 AM UTC every Tuesday
 }
 
 resource "aws_cloudwatch_event_target" "lambda_target" {
