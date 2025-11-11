@@ -26,12 +26,19 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install dependencies
-        working-directory: src/lambda
+      - name: Package Controller Lambda
+        working-directory: src/controller
         run: |
-          mkdir -p ../../build
+          mkdir -p ../../build/controller
           pip install -r requirements.txt -t .
-          zip -r ../../build/lambda.zip .
+          zip -r ../../build/controller/controller_lambda.zip .
+
+      - name: Package Chunk Processor Lambda
+        working-directory: src/chunk_processor
+        run: |
+          mkdir -p ../../build/chunk_processor
+          pip install -r requirements.txt -t .
+          zip -r ../../build/chunk_processor/chunk_processor_lambda.zip .
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -55,8 +62,14 @@ jobs:
         working-directory: infra
         run: terraform apply -auto-approve
 
-      - name: Upload Lambda to AWS
+      - name: Upload Controller Lambda to AWS
         run: |
           aws lambda update-function-code \
-            --function-name sleeper_data_refresh \
-            --zip-file fileb://build/lambda.zip
+            --function-name sleeper-controller \
+            --zip-file fileb://build/controller/controller_lambda.zip
+
+      - name: Upload Chunk Processor Lambda to AWS
+        run: |
+          aws lambda update-function-code \
+            --function-name sleeper-chunk-processor \
+            --zip-file fileb://build/chunk_processor/chunk_processor_lambda.zip
