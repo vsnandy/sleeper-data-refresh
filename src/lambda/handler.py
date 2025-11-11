@@ -4,13 +4,16 @@ import time
 import boto3
 import requests
 from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 s3 = boto3.client('s3')
 dynamodb = boto3.client('dynamodb')
 
-S3_BUCKET = os.environ.get('S3_BUCKET', 'sleeper-player-data')
+S3_BUCKET = os.environ.get('S3_BUCKET', 'vsnandy-sleeper-player-data')
 TABLE_NAME = os.environ.get('TABLE_NAME', 'sleeper_players')
-LEAGUES = ["nfl", "nba"]  # Expandable list
+LEAGUES = ["nfl", "nba"]
+MAX_BATCH_SIZE = 25
+MAX_WORKERS = 10  # tune based on memory + write capacity
 
 
 def handler(event, context):
@@ -28,7 +31,6 @@ def handler(event, context):
         players = response.json()
         print(f"✅ Retrieved {len(players)} {league.upper()} players.")
 
-        # Save snapshot to S3
         timestamp = datetime.utcnow().strftime("%Y-%m-%dT%H-%M-%SZ")
         s3_key = f"players/{league}/snapshot_{timestamp}.json"
         s3.put_object(
@@ -39,21 +41,21 @@ def handler(event, context):
         )
         print(f"💾 Saved {league.upper()} snapshot → s3://{S3_BUCKET}/{s3_key}")
 
-        # Write parsed data to DynamoDB
-        updated = _write_players_to_dynamo(players, league)
+        updated = _write_players_to_dynamo_parallel(players, league)
         total_updated += updated
         print(f"✅ Updated {updated} {league.upper()} players in DynamoDB.")
 
+    elapsed = time.time() - start_time
     print(f"🏁 Done! Total players updated: {total_updated}")
-    print(f"⏱ Runtime: {time.time() - start_time:.2f}s")
-    return {"statusCode": 200, "body": json.dumps({"total_updated": total_updated})}
+    print(f"⏱ Runtime: {elapsed:.2f}s")
+    return {"statusCode": 200, "body": json.dumps({"total_updated": total_updated, "duration_s": elapsed})}
 
 
-def _write_players_to_dynamo(players, league):
+def _write_players_to_dynamo_parallel(players, league):
     updated_at = datetime.utcnow().isoformat()
-    batch = []
-    total_written = 0
-
+    # Build list of batches
+    batches = []
+    current = []
     for player_id, data in players.items():
         item = {
             'league': {'S': league},
@@ -64,28 +66,36 @@ def _write_players_to_dynamo(players, league):
             'status': {'S': data.get('status', '') or 'unknown'},
             'updated_at': {'S': updated_at},
         }
-        batch.append({'PutRequest': {'Item': item}})
+        current.append({'PutRequest': {'Item': item}})
+        if len(current) == MAX_BATCH_SIZE:
+            batches.append(current)
+            current = []
+    if current:
+        batches.append(current)
 
-        if len(batch) == 25:
-            _write_batch(batch)
-            total_written += len(batch)
-            batch = []
-
-    if batch:
-        _write_batch(batch)
-        total_written += len(batch)
+    total_written = 0
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+        futures = {executor.submit(_submit_batch, batch): batch for batch in batches}
+        for future in as_completed(futures):
+            count = future.result()
+            total_written += count
 
     return total_written
 
 
-def _write_batch(batch):
-    """Helper to write 25 DynamoDB items with retries."""
-    request = {TABLE_NAME: batch}
-    while True:
-        response = dynamodb.batch_write_item(RequestItems=request)
+def _submit_batch(batch):
+    max_retries = 3
+    attempt = 0
+    request_items = {TABLE_NAME: batch}
+    while attempt < max_retries:
+        attempt += 1
+        response = dynamodb.batch_write_item(RequestItems=request_items)
         unprocessed = response.get('UnprocessedItems', {})
-        if not unprocessed:
-            break
-        print(f"⚠️ Retrying {len(unprocessed.get(TABLE_NAME, []))} unprocessed items...")
-        time.sleep(2)
-        request = unprocessed
+        # count processed items = batch size minus unprocessed
+        processed_count = len(batch) - len(unprocessed.get(TABLE_NAME, []))
+        if not unprocessed or attempt == max_retries:
+            return processed_count
+        # retry logic
+        request_items = unprocessed
+        time.sleep(0.5 * (2**attempt))  # exponential backoff
+    return 0
