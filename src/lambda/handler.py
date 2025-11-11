@@ -5,6 +5,10 @@ import boto3
 import requests
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import logging
+
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
 
 s3 = boto3.client('s3')
 dynamodb = boto3.client('dynamodb')
@@ -21,15 +25,15 @@ def handler(event, context):
     total_updated = 0
 
     for league in LEAGUES:
-        print(f"🔄 Fetching {league.upper()} player data...")
+        logger.info(f"🔄 Fetching {league.upper()} player data...")
         url = f"https://api.sleeper.app/v1/players/{league}"
         response = requests.get(url, timeout=90)
         if response.status_code != 200:
-            print(f"❌ Failed to fetch {league}: {response.status_code}")
+            logger.info(f"❌ Failed to fetch {league}: {response.status_code}")
             continue
 
         players = response.json()
-        print(f"✅ Retrieved {len(players)} {league.upper()} players.")
+        logger.info(f"✅ Retrieved {len(players)} {league.upper()} players.")
 
         timestamp = datetime.utcnow().strftime("%Y-%m-%dT%H-%M-%SZ")
         s3_key = f"players/{league}/snapshot_{timestamp}.json"
@@ -39,15 +43,15 @@ def handler(event, context):
             Body=json.dumps(players),
             ContentType="application/json"
         )
-        print(f"💾 Saved {league.upper()} snapshot → s3://{S3_BUCKET}/{s3_key}")
+        logger.info(f"💾 Saved {league.upper()} snapshot → s3://{S3_BUCKET}/{s3_key}")
 
         updated = _write_players_to_dynamo_parallel(players, league)
         total_updated += updated
-        print(f"✅ Updated {updated} {league.upper()} players in DynamoDB.")
+        logger.info(f"✅ Updated {updated} {league.upper()} players in DynamoDB.")
 
     elapsed = time.time() - start_time
-    print(f"🏁 Done! Total players updated: {total_updated}")
-    print(f"⏱ Runtime: {elapsed:.2f}s")
+    logger.info(f"🏁 Done! Total players updated: {total_updated}")
+    logger.info(f"⏱ Runtime: {elapsed:.2f}s")
     return {"statusCode": 200, "body": json.dumps({"total_updated": total_updated, "duration_s": elapsed})}
 
 
@@ -73,12 +77,15 @@ def _write_players_to_dynamo_parallel(players, league):
     if current:
         batches.append(current)
 
+    logger.info(f"Batches to process {len(batches)}.")
+
     total_written = 0
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
         futures = {executor.submit(_submit_batch, batch): batch for batch in batches}
         for future in as_completed(futures):
             count = future.result()
             total_written += count
+            logger.info(f"Total written items at {total_written}.")
 
     return total_written
 

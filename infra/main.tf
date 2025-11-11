@@ -30,8 +30,8 @@ resource "aws_s3_bucket" "sleeper_data" {
 resource "aws_dynamodb_table" "players" {
   name         = var.dynamo_table_name
   billing_mode   = "PROVISIONED"
-  read_capacity = 1
-  write_capacity = 1
+  read_capacity = 5
+  write_capacity = 10
   hash_key     = "league"
   range_key    = "player_id"
 
@@ -73,7 +73,8 @@ resource "aws_lambda_function" "sleeper_data_refresh" {
   handler       = "handler.handler"
   runtime       = "python3.12"
 
-  timeout       = 900
+  memory_size   = 1024
+  timeout       = 300
 
   role          = aws_iam_role.lambda_role.arn
   filename      = "${path.module}/../build/lambda.zip"
@@ -89,7 +90,7 @@ resource "aws_lambda_function" "sleeper_data_refresh" {
 # --- Optional EventBridge rule for weekly refresh ---
 resource "aws_cloudwatch_event_rule" "weekly_refresh" {
   name                = "sleeper_data_refresh_weekly"
-  schedule_expression = "cron(25 6 ? * TUE *)" # 5 AM UTC every Tuesday
+  schedule_expression = "cron(25 6 ? * TUE *)" # 6:25 AM UTC every Tuesday
 }
 
 resource "aws_cloudwatch_event_target" "lambda_target" {
