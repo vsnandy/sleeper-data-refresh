@@ -20,7 +20,7 @@ variable "prefix" {
 
 variable "chunk_size" {
   description = "Chunk size"
-  default     = 1000
+  default     = 500
 }
 
 variable "controller_memory_size" {
