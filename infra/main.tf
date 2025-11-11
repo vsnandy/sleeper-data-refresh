@@ -9,7 +9,7 @@ terraform {
   backend "s3" {
     bucket = "my-terraform-state"
     key    = "sleeper-data-refresh/terraform.tfstate"
-    region = "us-east-1"
+    region = "ap-northeast-1"
   }
 
   required_version = ">= 1.5.0"
