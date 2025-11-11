@@ -15,9 +15,6 @@ permissions:
 jobs:
   build-deploy:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: src
 
     steps:
       - name: Checkout code
@@ -31,6 +28,7 @@ jobs:
       - name: Install dependencies
         working-directory: src/lambda
         run: |
+          mkdir -p ../../build
           pip install -r requirements.txt -t .
           zip -r ../../build/lambda.zip .
 
