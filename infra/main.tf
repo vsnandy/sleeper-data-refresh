@@ -7,9 +7,9 @@ terraform {
   }
 
   backend "s3" {
-    bucket = "my-terraform-state"
+    bucket = "vsnandy-tfstate"
     key    = "sleeper-data-refresh/terraform.tfstate"
-    region = "ap-northeast-1"
+    region = "us-east-1"
   }
 
   required_version = ">= 1.5.0"
@@ -87,7 +87,7 @@ resource "aws_lambda_function" "sleeper_data_refresh" {
 # --- Optional EventBridge rule for weekly refresh ---
 resource "aws_cloudwatch_event_rule" "weekly_refresh" {
   name                = "sleeper_data_refresh_weekly"
-  schedule_expression = "cron(0 5 * * 2 *)" # 5 AM UTC every Tuesday
+  schedule_expression = "cron(15 5 * * TUE)" # 5 AM UTC every Tuesday
 }
 
 resource "aws_cloudwatch_event_target" "lambda_target" {
