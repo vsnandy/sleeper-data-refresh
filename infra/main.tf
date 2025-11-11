@@ -163,7 +163,7 @@ resource "aws_lambda_function" "controller" {
   runtime       = "python3.12"
   memory_size   = var.controller_memory_size
   timeout       = var.controller_timeout
-  filename      = "${path.module}/../build/controller_lambda.zip"
+  filename      = "${path.module}/../build/controller/controller_lambda.zip"
 
   environment {
     variables = {
@@ -182,7 +182,7 @@ resource "aws_lambda_function" "chunk_processor" {
   runtime       = "python3.12"
   memory_size   = var.chunk_processor_memory_size
   timeout       = var.chunk_processor_timeout
-  filename      = "${path.module}/../build/chunk_processor_lambda.zip"
+  filename      = "${path.module}/../build/chunk_processor/chunk_processor_lambda.zip"
 
   environment {
     variables = {
