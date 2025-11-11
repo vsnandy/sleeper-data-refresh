@@ -73,6 +73,8 @@ resource "aws_lambda_function" "sleeper_data_refresh" {
   handler       = "handler.handler"
   runtime       = "python3.12"
 
+  timeout       = 60
+
   role          = aws_iam_role.lambda_role.arn
   filename      = "${path.module}/../build/lambda.zip"
 
